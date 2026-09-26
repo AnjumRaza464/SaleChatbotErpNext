@@ -1,6 +1,7 @@
 """Application settings. All secrets come from the environment / .env file."""
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -9,6 +10,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = BACKEND_DIR.parent
+# On Vercel (and most serverless hosts) the project directory is read-only;
+# only /tmp is writable, so runtime data (SQLite DB, uploads) goes there.
+DEFAULT_DATA_DIR = Path("/tmp/erpnext-assistant") if os.environ.get("VERCEL") else BACKEND_DIR / "data"
 
 
 class Settings(BaseSettings):
@@ -38,7 +42,7 @@ class Settings(BaseSettings):
     # App -----------------------------------------------------------------
     app_name: str = "ERPNext AI Assistant"
     cors_origins: str = Field(default="http://localhost:3000", validation_alias="CORS_ORIGINS")
-    data_dir: Path = Field(default=BACKEND_DIR / "data", validation_alias="DATA_DIR")
+    data_dir: Path = Field(default=DEFAULT_DATA_DIR, validation_alias="DATA_DIR")
     max_upload_mb: int = Field(default=20, validation_alias="MAX_UPLOAD_MB")
     max_tool_rows: int = Field(default=200, validation_alias="MAX_TOOL_ROWS")
     max_agent_iterations: int = Field(default=8, validation_alias="MAX_AGENT_ITERATIONS")

@@ -122,6 +122,30 @@ npm run dev -- --port 3001      # http://localhost:3001
 From the project root, `.\start.ps1` creates the venv / installs `node_modules` if missing
 and opens the backend and frontend in two separate windows.
 
+## Deploy to Vercel
+
+The repo contains a `vercel.json` that deploys both parts as one Vercel project using
+[Vercel Services](https://vercel.com/docs/services): the Next.js frontend at `/` and the
+FastAPI backend at `/api/*`. No `BACKEND_URL` is needed; both run on the same domain.
+
+1. On vercel.com choose **Add New > Project**, import `AnjumRaza464/SaleChatbotErpNext`
+   and keep the Root Directory as `./`. Vercel reads `vercel.json` and shows two services
+   (frontend: Next.js, backend: FastAPI).
+2. Open **Environment Variables** and add the same keys as `backend/.env`:
+   `ERPNEXT_BASE_URL`, `ERPNEXT_API_KEY`, `ERPNEXT_API_SECRET`, `OPENAI_API_KEY`,
+   `OPENAI_MODEL` (you can paste the whole `.env` file into the key field).
+3. Click **Deploy**. After the build, open `https://<project>.vercel.app/api/health` to
+   confirm the ERPNext connection.
+
+Notes for Vercel:
+
+- The backend runs as a serverless function with a 300 s max duration (set in `vercel.json`).
+- Vercel's filesystem is read-only, so the backend stores its SQLite DB and uploads under
+  `/tmp` (see `DEFAULT_DATA_DIR` in `backend/app/core/config.py`). That storage is
+  ephemeral: chat history and uploaded files can disappear between cold starts. For
+  durable history, point `DATA_DIR` at a persistent volume on a VM/container host, or
+  move storage to a hosted database.
+
 ## Troubleshooting
 
 **`Fatal error in launcher: Unable to create process using '...\python.exe'`**
