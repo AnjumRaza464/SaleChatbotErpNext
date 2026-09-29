@@ -70,6 +70,10 @@ class ExportRequest(BaseModel):
     summary: dict[str, Any] = {}
 
 
+class TranscriptionOut(BaseModel):
+    text: str
+
+
 class HealthOut(BaseModel):
     status: str
     erpnext: dict[str, Any]

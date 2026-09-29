@@ -52,6 +52,7 @@ ERPNEXT_API_SECRET=...
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 # OPENAI_GUARD_MODEL=gpt-4o-mini
+# OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe   # speech-to-text for the mic button
 
 # App (optional)
 CORS_ORIGINS=http://localhost:3001
@@ -191,6 +192,9 @@ backend port, set `BACKEND_URL` in `frontend/.env.local` and `CORS_ORIGINS` in
   dates (today / yesterday / this month / last month) in the site timezone.
 - **Attachments**: Excel/CSV are profiled and analysed with pandas (exact group-bys,
   sums, top-N, filters); PDF/DOCX/TXT are read as text.
+- **Voice input**: click the microphone, ask in English or Urdu, click again to stop. The
+  speech is transcribed by OpenAI into the message box so you can check it before sending.
+  The browser only allows the microphone on `localhost` or HTTPS.
 - **Export to Excel**: every assistant message with tabular results has an
   *Export to Excel* button producing a formatted `.xlsx` (title, styled headers,
   auto filter, frozen header, currency/date formats, SUBTOTAL totals row, auto widths,

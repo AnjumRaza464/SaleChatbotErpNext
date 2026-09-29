@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", validation_alias="OPENAI_MODEL")
     openai_guard_model: str | None = Field(default=None, validation_alias="OPENAI_GUARD_MODEL")
+    openai_transcribe_model: str = Field(default="gpt-4o-mini-transcribe", validation_alias="OPENAI_TRANSCRIBE_MODEL")
 
     # App -----------------------------------------------------------------
     app_name: str = "ERPNext AI Assistant"

@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowUp, FileSpreadsheet, FileText, Loader2, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, FileSpreadsheet, FileText, Loader2, Mic, Paperclip, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { api } from "@/lib/api";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -53,9 +54,16 @@ export function Composer({ disabled, streaming, onSend, onStop, autoFocus }: Com
     }
   };
 
+  const voice = useVoiceRecorder((spoken) => {
+    setText((prev) => (prev.trim() ? `${prev.trimEnd()} ${spoken}` : spoken));
+    textarea.current?.focus();
+  });
+  const listening = voice.state === "recording";
+  const transcribing = voice.state === "transcribing";
+
   const ready = uploads.filter((u) => u.attachment).map((u) => u.attachment!);
   const uploading = uploads.some((u) => u.uploading);
-  const canSend = text.trim().length > 0 && !uploading && !streaming && !disabled;
+  const canSend = text.trim().length > 0 && !uploading && !streaming && !disabled && voice.state === "idle";
 
   const submit = () => {
     if (!canSend) return;
@@ -127,7 +135,41 @@ export function Composer({ disabled, streaming, onSend, onStop, autoFocus }: Com
             </TooltipTrigger>
             <TooltipContent>Attach Excel, CSV, PDF, DOCX or TXT</TooltipContent>
           </Tooltip>
-          <span className="hidden text-[11px] text-muted-foreground sm:inline">Enter to send · Shift+Enter for new line</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant={listening ? "destructive" : "ghost"}
+                onClick={listening ? voice.stop : voice.start}
+                disabled={disabled || transcribing}
+                aria-label={listening ? "Stop recording" : "Speak your question"}
+                aria-pressed={listening}
+              >
+                {transcribing ? <Loader2 className="animate-spin" /> : listening ? <Square className="size-3 fill-current" /> : <Mic />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{listening ? "Stop and transcribe" : "Speak your question (English or Urdu)"}</TooltipContent>
+          </Tooltip>
+          {listening ? (
+            <span className="flex items-center gap-1.5 text-xs text-destructive" aria-live="polite">
+              <span className="size-2 animate-pulse rounded-full bg-destructive" />
+              Listening… {Math.floor(voice.seconds / 60)}:{String(voice.seconds % 60).padStart(2, "0")}
+            </span>
+          ) : transcribing ? (
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              Transcribing…
+            </span>
+          ) : voice.error ? (
+            <span className="flex items-center gap-1 text-xs text-destructive" role="alert">
+              {voice.error}
+              <button type="button" onClick={voice.clearError} className="rounded hover:bg-muted" aria-label="Dismiss">
+                <X className="size-3" />
+              </button>
+            </span>
+          ) : (
+            <span className="hidden text-[11px] text-muted-foreground sm:inline">Enter to send · Shift+Enter for new line</span>
+          )}
         </div>
         {streaming ? (
           <Button type="button" size="icon-sm" variant="outline" onClick={onStop} aria-label="Stop generating">

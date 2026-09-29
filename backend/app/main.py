@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import chat, conversations, export, health, uploads
+from app.api.routes import chat, conversations, export, health, transcribe, uploads
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import setup_logging
@@ -63,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix=api_prefix)
     app.include_router(uploads.router, prefix=api_prefix)
     app.include_router(export.router, prefix=api_prefix)
+    app.include_router(transcribe.router, prefix=api_prefix)
     return app
 
 

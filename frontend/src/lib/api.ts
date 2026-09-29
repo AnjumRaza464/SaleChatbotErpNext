@@ -45,7 +45,13 @@ export const api = {
     return fetch(`${BASE}/uploads`, { method: "POST", body: form }).then((r) => handle<Attachment>(r));
   },
 
-  exportMessageUrl: (messageId: string) => `${BASE}/export/message/${messageId}`,
+  transcribe: async (audio: Blob, filename: string): Promise<{ text: string }> => {
+    const form = new FormData();
+    form.append("file", audio, filename);
+    return fetch(`${BASE}/transcribe`, { method: "POST", body: form }).then((r) => handle<{ text: string }>(r));
+  },
+
+  exportMessageUrl:(messageId: string) => `${BASE}/export/message/${messageId}`,
   exportDatasetUrl: (datasetId: string) => `${BASE}/export/dataset/${datasetId}`,
 };
 
