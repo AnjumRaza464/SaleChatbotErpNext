@@ -303,7 +303,7 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="list_stock_entries",
-        description="List Stock Entries (material receipt/issue/transfer/manufacture) in a period.",
+        description="List Stock Entry documents (material receipt/issue/transfer/manufacture) in a period. Stock Entry doctype ONLY: for Material Requests, Purchase Receipts or Delivery Notes use query_doctype on that exact doctype.",
         parameters={
             "type": "object",
             "properties": {

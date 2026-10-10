@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, MessageSquare, MoreHorizontal, Moon, Pencil, Plus, Search, Sun, Trash2, X } from "lucide-react";
+import { Check, LogOut, MessageSquare, MoreHorizontal, Moon, Pencil, Plus, Search, ShieldCheck, Sun, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore, useState } from "react";
 
@@ -8,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Conversation, Health } from "@/lib/types";
+import { moduleConfig } from "@/lib/modules";
+import type { Conversation, Health, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -22,6 +24,9 @@ interface SidebarProps {
   onDelete: (id: string) => Promise<void>;
   onRename: (id: string, title: string) => Promise<void>;
   health: Health | null;
+  user: User;
+  module: string | null;
+  onLogout: () => void;
 }
 
 function groupLabel(iso: string): string {
@@ -36,7 +41,8 @@ function groupLabel(iso: string): string {
   return "Older";
 }
 
-export function Sidebar({ conversations, loading, activeId, search, onSearch, onNewChat, onSelect, onDelete, onRename, health }: SidebarProps) {
+export function Sidebar({ conversations, loading, activeId, search, onSearch, onNewChat, onSelect, onDelete, onRename, health, user, module, onLogout }: SidebarProps) {
+  const cfg = moduleConfig(module);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const { resolvedTheme, setTheme } = useTheme();
@@ -70,7 +76,7 @@ export function Sidebar({ conversations, loading, activeId, search, onSearch, on
 
       <div className="px-3 pb-2">
         <Button className="w-full justify-start" variant="outline" onClick={onNewChat}>
-          <Plus data-icon="inline-start" /> New chat
+          <Plus data-icon="inline-start" /> New {cfg.label} chat
         </Button>
       </div>
 
@@ -92,7 +98,7 @@ export function Sidebar({ conversations, loading, activeId, search, onSearch, on
             ))}
           </div>
         ) : conversations.length === 0 ? (
-          <p className="px-2 pt-6 text-center text-xs text-muted-foreground">{search ? "No conversations match your search." : "No conversations yet. Ask your first ERPNext question."}</p>
+          <p className="px-2 pt-6 text-center text-xs text-muted-foreground">{search ? "No conversations match your search." : `No ${cfg.label} conversations yet. Ask your first question.`}</p>
         ) : (
           order
             .filter((g) => groups[g]?.length)
@@ -155,11 +161,28 @@ export function Sidebar({ conversations, loading, activeId, search, onSearch, on
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
-        <span className="truncate">{health ? `${health.tools} tools · ${health.model}` : ""}</span>
-        <Button size="icon-xs" variant="ghost" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
-          {mounted && resolvedTheme === "dark" ? <Sun /> : <Moon />}
-        </Button>
+      <div className="border-t border-sidebar-border px-3 py-2">
+        <div className="flex items-center gap-2">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold uppercase">{user.full_name.slice(0, 1)}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-medium">{user.full_name}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{user.is_admin ? "Administrator" : user.modules.map((m) => moduleConfig(m).label).join(" · ") || "No modules"}</div>
+          </div>
+          {user.is_admin && (
+            <Button asChild size="icon-xs" variant="ghost" aria-label="Manage users" title="Manage users">
+              <Link href="/admin">
+                <ShieldCheck />
+              </Link>
+            </Button>
+          )}
+          <Button size="icon-xs" variant="ghost" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
+            {mounted && resolvedTheme === "dark" ? <Sun /> : <Moon />}
+          </Button>
+          <Button size="icon-xs" variant="ghost" onClick={onLogout} aria-label="Sign out" title="Sign out">
+            <LogOut />
+          </Button>
+        </div>
+        {health?.tools ? <div className="mt-1 truncate text-[10px] text-muted-foreground">{`${health.tools} tools · ${health.model}`}</div> : null}
       </div>
     </aside>
   );

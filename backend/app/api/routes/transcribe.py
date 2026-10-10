@@ -8,10 +8,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 from openai import APIError
 
 from app.agent.agent import get_openai
+from app.auth.deps import current_user
 from app.core.config import get_settings
 from app.core.errors import AppError, ValidationError
 from app.schemas.api import TranscriptionOut
@@ -42,7 +43,7 @@ def _vocabulary_prompt() -> str:
 
 
 @router.post("", response_model=TranscriptionOut)
-async def transcribe(file: UploadFile = File(...)) -> TranscriptionOut:
+async def transcribe(file: UploadFile = File(...), _user: dict = Depends(current_user)) -> TranscriptionOut:
     filename = Path(file.filename or "voice.webm").name
     if Path(filename).suffix.lower() not in AUDIO_EXTENSIONS:
         raise ValidationError("Unsupported audio format.")

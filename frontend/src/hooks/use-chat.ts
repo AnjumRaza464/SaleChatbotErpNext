@@ -7,7 +7,12 @@ import type { Attachment, Conversation, Message } from "@/lib/types";
 
 const PENDING_ID = "__pending__";
 
-export function useChat() {
+/**
+ * Chat state for ONE module (tab). Switching the module swaps the
+ * conversation list and clears the open chat; every request carries the
+ * module so the backend can enforce access.
+ */
+export function useChat(module: string | null) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -19,11 +24,15 @@ export function useChat() {
   const abortRef = useRef<AbortController | null>(null);
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeId;
+  const moduleRef = useRef<string | null>(module);
+  moduleRef.current = module;
 
   const refreshConversations = useCallback(async (query?: string) => {
+    const mod = moduleRef.current;
+    if (!mod) return;
     try {
-      const list = await api.listConversations(query);
-      setConversations(list);
+      const list = await api.listConversations(mod, query);
+      if (moduleRef.current === mod) setConversations(list);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -31,10 +40,24 @@ export function useChat() {
     }
   }, []);
 
+  // Module changed: reset everything and reload the list.
   useEffect(() => {
+    abortRef.current?.abort();
+    setStreaming(false);
+    setError(null);
+    setActiveId(null);
+    setMessages([]);
+    setSearch("");
+    setConversations([]);
+    setConversationsLoading(true);
+    if (module) refreshConversations();
+  }, [module, refreshConversations]);
+
+  useEffect(() => {
+    if (!module) return;
     const t = setTimeout(() => refreshConversations(search.trim() || undefined), search ? 250 : 0);
     return () => clearTimeout(t);
-  }, [search, refreshConversations]);
+  }, [search, module, refreshConversations]);
 
   const selectConversation = useCallback(async (id: string | null) => {
     abortRef.current?.abort();
@@ -79,7 +102,8 @@ export function useChat() {
   const send = useCallback(
     async (text: string, attachments: Attachment[]) => {
       const message = text.trim();
-      if (!message || streaming) return;
+      const mod = moduleRef.current;
+      if (!message || streaming || !mod) return;
       setError(null);
       const controller = new AbortController();
       abortRef.current = controller;
@@ -117,7 +141,7 @@ export function useChat() {
       let finished = false;
       try {
         await streamChat(
-          { message, conversation_id: conversationId, attachment_ids: attachments.map((a) => a.id) },
+          { message, conversation_id: conversationId, attachment_ids: attachments.map((a) => a.id), module: mod },
           (ev) => {
             switch (ev.type) {
               case "meta":
@@ -174,6 +198,7 @@ export function useChat() {
   }, [messages, send]);
 
   return {
+    module,
     conversations,
     conversationsLoading,
     search,

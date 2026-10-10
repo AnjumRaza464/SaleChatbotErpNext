@@ -44,8 +44,14 @@ class ToolRegistry:
     def get(self, name: str) -> Tool | None:
         return self._tools.get(name)
 
-    def openai_schemas(self) -> list[dict[str, Any]]:
-        return [t.openai_schema() for t in self._tools.values()]
+    def allowed_tools(self, allowed: set[str] | None = None) -> list[Tool]:
+        """Tools visible to a scope. ``None`` = every tool (administrators)."""
+        if allowed is None:
+            return self.tools
+        return [t for t in self._tools.values() if t.name in allowed]
+
+    def openai_schemas(self, allowed: set[str] | None = None) -> list[dict[str, Any]]:
+        return [t.openai_schema() for t in self.allowed_tools(allowed)]
 
     def modules(self) -> dict[str, list[str]]:
         out: dict[str, list[str]] = {}
@@ -53,10 +59,14 @@ class ToolRegistry:
             out.setdefault(t.module, []).append(t.name)
         return out
 
-    async def call(self, name: str, client: ERPNextClient, arguments: dict[str, Any]) -> ToolResult:
+    async def call(self, name: str, client: ERPNextClient, arguments: dict[str, Any], allowed: set[str] | None = None) -> ToolResult:
+        """Run a tool. Raises ``PermissionError`` when the scope does not allow it,
+        even if the model somehow produced its name."""
         tool = self.get(name)
         if tool is None:
             raise KeyError(f"Unknown tool '{name}'")
+        if allowed is not None and name not in allowed:
+            raise PermissionError(f"Tool '{name}' is not available in this module.")
         return await tool.run(client, **arguments)
 
 

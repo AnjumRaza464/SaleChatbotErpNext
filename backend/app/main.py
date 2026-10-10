@@ -9,7 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import chat, conversations, export, health, transcribe, uploads
+from app.api.routes import admin, auth, chat, conversations, export, health, transcribe, uploads
+from app.auth.security import hash_password
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import setup_logging
@@ -21,11 +22,25 @@ from app.storage.db import close_db, get_db
 log = logging.getLogger(__name__)
 
 
+def _bootstrap_admin(db, settings) -> None:
+    """Create the first administrator from ADMIN_EMAIL / ADMIN_PASSWORD when no users exist."""
+    if db.count_users() > 0:
+        return
+    if not settings.admin_password:
+        log.error("No users exist and ADMIN_PASSWORD is not set. Add ADMIN_EMAIL and ADMIN_PASSWORD to backend/.env to create the first administrator.")
+        return
+    db.create_user(settings.admin_email, settings.admin_name, hash_password(settings.admin_password), [], is_admin=True)
+    log.info("Created initial administrator %s", settings.admin_email)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings.log_level)
-    get_db()
+    db = get_db()
+    _bootstrap_admin(db, settings)
+    if not settings.session_secret:
+        log.warning("SESSION_SECRET is not set; a random secret is used and sessions reset on every restart.")
     get_registry()
     ctx = await load_site_context()
     if ctx.loaded:
@@ -64,6 +79,8 @@ def create_app() -> FastAPI:
     app.include_router(uploads.router, prefix=api_prefix)
     app.include_router(export.router, prefix=api_prefix)
     app.include_router(transcribe.router, prefix=api_prefix)
+    app.include_router(auth.router, prefix=api_prefix)
+    app.include_router(admin.router, prefix=api_prefix)
     return app
 
 

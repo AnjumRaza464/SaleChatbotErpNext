@@ -80,6 +80,13 @@ class ERPNextClient:
         if resp.status_code >= 400:
             msg = _clean_exception(resp.text)
             log.warning("ERPNext %s %s -> %s: %s", path, clean, resp.status_code, msg)
+            if resp.status_code == 404 and "DocType" in msg and "not found" in msg:
+                # The doctype does not exist on this site (e.g. HRMS app not installed).
+                raise ERPNextError(
+                    f"{msg}. This doctype is not installed on the ERPNext site (its app, e.g. HRMS, is missing), "
+                    "so this data does not exist yet. Tell the user plainly; it is NOT a permission issue.",
+                    status_code=404,
+                )
             raise ERPNextError(f"ERPNext returned {resp.status_code}: {msg}", status_code=502)
         try:
             return resp.json()

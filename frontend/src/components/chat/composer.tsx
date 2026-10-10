@@ -27,9 +27,10 @@ interface ComposerProps {
   onSend: (text: string, attachments: Attachment[]) => void;
   onStop: () => void;
   autoFocus?: boolean;
+  placeholder?: string;
 }
 
-export function Composer({ disabled, streaming, onSend, onStop, autoFocus }: ComposerProps) {
+export function Composer({ disabled, streaming, onSend, onStop, autoFocus, placeholder }: ComposerProps) {
   const [text, setText] = useState("");
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -119,7 +120,7 @@ export function Composer({ disabled, streaming, onSend, onStop, autoFocus }: Com
             submit();
           }
         }}
-        placeholder="Ask about sales, stock, invoices, customers… or attach a file to analyze"
+        placeholder={placeholder ?? "Ask about sales, stock, invoices, customers… or attach a file to analyze"}
         rows={1}
         disabled={disabled}
         className="max-h-[200px] min-h-[44px] resize-none border-0 bg-transparent px-4 py-3 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"

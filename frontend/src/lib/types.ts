@@ -42,6 +42,17 @@ export interface Conversation {
   created_at: string;
   updated_at: string;
   message_count: number;
+  module: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+  is_active: boolean;
+  modules: string[];
+  created_at?: string | null;
 }
 
 export interface ConversationDetail extends Conversation {

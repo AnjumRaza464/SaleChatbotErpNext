@@ -35,7 +35,7 @@ generates the OpenAI tool schema automatically, so adding a module = adding a fi
 
 1. Backend core: config (.env), ERPNext client, error handling, health endpoint.
 2. ERPNext modules + tool registry.
-3. AI agent: guard (ERPNext-only), tool loop, streaming, 10-line answers, no invented data.
+3. AI agent: guard (ERPNext-only), tool loop, streaming, 15-line answers (30 in detail mode), no invented data.
 4. Storage + conversations API.
 5. File upload + parsing + file analysis tool.
 6. Excel export.

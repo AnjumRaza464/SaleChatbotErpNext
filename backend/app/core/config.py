@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     openai_guard_model: str | None = Field(default=None, validation_alias="OPENAI_GUARD_MODEL")
     openai_transcribe_model: str = Field(default="gpt-4o-mini-transcribe", validation_alias="OPENAI_TRANSCRIBE_MODEL")
 
+    # Auth ----------------------------------------------------------------
+    # Secret used to sign session cookies. Set a long random value in .env;
+    # if left empty a random one is generated at startup (sessions then reset on restart).
+    session_secret: str = Field(default="", validation_alias="SESSION_SECRET")
+    session_hours: int = Field(default=12, validation_alias="SESSION_HOURS")
+    # First administrator, created automatically when the users table is empty.
+    admin_email: str = Field(default="admin@example.com", validation_alias="ADMIN_EMAIL")
+    admin_password: str = Field(default="", validation_alias="ADMIN_PASSWORD")
+    admin_name: str = Field(default="Administrator", validation_alias="ADMIN_NAME")
+
     # App -----------------------------------------------------------------
     app_name: str = "ERPNext AI Assistant"
     cors_origins: str = Field(default="http://localhost:3000", validation_alias="CORS_ORIGINS")

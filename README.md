@@ -54,6 +54,13 @@ OPENAI_MODEL=gpt-4o-mini
 # OPENAI_GUARD_MODEL=gpt-4o-mini
 # OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe   # speech-to-text for the mic button
 
+# Auth (role-based tabs)
+SESSION_SECRET=<long random string>     # signs the session cookie; keep it secret
+ADMIN_EMAIL=admin@example.com           # first administrator, created when no users exist
+ADMIN_PASSWORD=<strong password>
+ADMIN_NAME=Administrator
+# SESSION_HOURS=12
+
 # App (optional)
 CORS_ORIGINS=http://localhost:3001
 MAX_UPLOAD_MB=20
@@ -181,6 +188,30 @@ Pick another port with `--port` (backend) or `-- --port` (frontend). If you chan
 backend port, set `BACKEND_URL` in `frontend/.env.local` and `CORS_ORIGINS` in
 `backend/.env` accordingly.
 
+## Roles and modules
+
+The assistant is split into four tabs: **Sales**, **Warehouse**, **Stock** and **HR**.
+Every user signs in; an administrator assigns one or more modules to each user from the
+**Users & access** page (shield icon in the sidebar, or `/admin`). Administrators see all
+four tabs plus an **All** tab with every tool.
+
+Access is enforced on the backend for every request, not just by hiding tabs:
+
+- each tab exposes only its own tools to the AI, and the registry refuses any other tool
+  even if the model names it (see `backend/app/agent/scope.py` for the allowlists);
+- the generic doctype/report tools only accept doctypes in the tab's allowlist;
+- conversations, uploads and Excel exports belong to the user who created them and to the
+  tab they were created in; other users get 404;
+- security doctypes (users, API keys, tokens, email accounts, settings) are blocked for
+  everyone, and password fields are stripped from documents;
+- HR tools are the only way to reach salary data, and every chat and export is written to
+  an audit log (`GET /api/admin/audit`).
+
+Note: attendance, leave and payroll live in the separate **HRMS** app. If it is not
+installed on your site, the HR tab answers that the data is not available.
+
+Security tests: `cd backend && .venv\Scripts\python -m pytest`.
+
 ## Features
 
 - **Live ERPNext data** for Sales, Accounts, Stock/Inventory, Purchase, Customers,
@@ -188,7 +219,7 @@ backend port, set `BACKEND_URL` in `frontend/.env.local` and `CORS_ORIGINS` in
   (through the generic read-only query tool and standard ERPNext reports).
 - **Strict ERPNext-only rule**: unrelated questions get exactly
   *"Sorry, I don't know. Kindly ask me an ERPNext-related question."*
-- **Answer rules**: max 10 lines, tables/bullets, never invents data, resolves relative
+- **Answer rules**: max 15 lines (up to 30 when the user asks for detail), tables/bullets, never invents data, resolves relative
   dates (today / yesterday / this month / last month) in the site timezone.
 - **Attachments**: Excel/CSV are profiled and analysed with pandas (exact group-bys,
   sums, top-N, filters); PDF/DOCX/TXT are read as text.

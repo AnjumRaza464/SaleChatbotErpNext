@@ -17,8 +17,9 @@ from typing import Any, AsyncIterator
 
 from openai import APIError, AsyncOpenAI
 
-from app.agent.guard import is_erpnext_related
-from app.agent.prompts import OFF_TOPIC_REPLY, build_system_prompt
+from app.agent.guard import classify
+from app.agent.prompts import OFF_TOPIC_REPLY, OUT_OF_SCOPE_REPLY, build_system_prompt, count_lines, is_detailed_request, line_budget
+from app.agent.scope import ADMIN_MODULE, MODULES, set_scope
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.files.tools import TOOLS as FILE_TOOLS
@@ -114,6 +115,8 @@ async def run_agent(
     message: str,
     history: list[dict[str, Any]],
     attachments: list[dict[str, Any]] | None = None,
+    module: str = ADMIN_MODULE,
+    user_id: str | None = None,
 ) -> AsyncIterator[AgentEvent]:
     settings = get_settings()
     attachments = attachments or []
@@ -122,17 +125,29 @@ async def run_agent(
     if not ctx.loaded:
         ctx = await load_site_context()
 
+    # Activate the module scope for this request: tool allowlist + doctype allowlist.
+    scope = set_scope(module, user_id)
+
     yield AgentEvent("status", {"text": "Checking question"})
-    if not await is_erpnext_related(client, message, history, bool(attachments)):
+    verdict = await classify(client, message, history, bool(attachments), module)
+    if not verdict.related:
         yield AgentEvent("token", {"text": OFF_TOPIC_REPLY})
         yield AgentEvent("done", {"content": OFF_TOPIC_REPLY, "datasets": [], "tool_calls": [], "off_topic": True})
         return
+    if not verdict.in_scope:
+        area = verdict.area if verdict.area in MODULES else (verdict.area or "another")
+        reply = OUT_OF_SCOPE_REPLY.format(module=area)
+        yield AgentEvent("token", {"text": reply})
+        yield AgentEvent("done", {"content": reply, "datasets": [], "tool_calls": [], "off_topic": False, "out_of_scope": True})
+        return
 
     registry = _registry_with_file_tools()
-    tools_schema = registry.openai_schemas()
+    tools_schema = registry.openai_schemas(scope.tools)
     erp = get_client()
 
-    messages: list[dict[str, Any]] = [{"role": "system", "content": build_system_prompt(ctx, bool(attachments))}]
+    detailed = is_detailed_request(message)
+    budget = line_budget(detailed)
+    messages: list[dict[str, Any]] = [{"role": "system", "content": build_system_prompt(ctx, bool(attachments), detailed, module)}]
     messages += _history_messages(history)
     messages.append({"role": "user", "content": _user_content(message, attachments)})
 
@@ -217,7 +232,8 @@ async def run_agent(
                 try:
                     if tool is None:
                         raise KeyError(f"Unknown tool {name}")
-                    result = await tool.run(erp, **arguments)
+                    # Second line of defence: refuse tools outside the scope even if the model names them.
+                    result = await registry.call(name, erp, arguments, scope.tools)
                     payload = result.to_model_payload(settings.max_tool_rows)
                     ds = _dataset_from_result(name, result)
                     if ds:
@@ -226,6 +242,10 @@ async def run_agent(
                 except AppError as exc:
                     payload = {"error": exc.message}
                     ok = False
+                except PermissionError as exc:
+                    log.warning("Scope violation by model in module %s: %s", module, exc)
+                    payload = {"error": f"{exc} Tell the user this data belongs to another module they do not have access to in this tab."}
+                    ok = False
                 except Exception as exc:  # noqa: BLE001 - surface to the model
                     log.exception("Tool %s failed", name)
                     payload = {"error": f"{type(exc).__name__}: {exc}"}
@@ -233,6 +253,37 @@ async def run_agent(
             tool_log.append({"name": name, "arguments": arguments, "ok": ok, "rows": payload.get("row_count", 0) if ok else 0, "error": payload.get("error")})
             yield AgentEvent("tool", tool_log[-1])
             messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(payload, default=str)})
+
+    # Enforce the line budget: the model is told the limit but cannot count
+    # reliably, so an over-long reply is discarded and rewritten once.
+    lines = count_lines(final_content)
+    if final_content and lines > budget:
+        log.info("Answer has %d lines (budget %d, detailed=%s); asking for a rewrite", lines, budget, detailed)
+        yield AgentEvent("reset")
+        yield AgentEvent("status", {"text": "Shortening answer"})
+        messages.append({"role": "assistant", "content": final_content})
+        messages.append({
+            "role": "user",
+            "content": (
+                f"Your reply has {lines} non-empty lines but the hard limit is {budget}. Rewrite it in at most {budget} non-empty lines "
+                "(every table row, bullet and sentence counts). Keep the most important figures, merge into one table if needed, "
+                "drop blank lines, horizontal rules and repeated numbers. Output only the rewritten reply."
+            ),
+        })
+        rewritten: list[str] = []
+        try:
+            stream = await client.chat.completions.create(model=settings.openai_model, messages=messages, temperature=0.1, stream=True)
+            async for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    rewritten.append(chunk.choices[0].delta.content)
+                    yield AgentEvent("token", {"text": chunk.choices[0].delta.content})
+        except APIError as exc:
+            log.warning("Rewrite failed, keeping original answer: %s", exc)
+        if "".join(rewritten).strip():
+            final_content = "".join(rewritten).strip()
+        else:
+            yield AgentEvent("reset")
+            yield AgentEvent("token", {"text": final_content})
 
     if not final_content:
         final_content = "I could not produce an answer from the ERPNext data for this question. Please rephrase or narrow the period."

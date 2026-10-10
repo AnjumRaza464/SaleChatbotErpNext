@@ -12,3 +12,5 @@ python-multipart>=0.0.9
 pydantic>=2.7
 pydantic-settings>=2.3
 python-dotenv>=1.0
+bcrypt>=4.1
+PyJWT>=2.8
