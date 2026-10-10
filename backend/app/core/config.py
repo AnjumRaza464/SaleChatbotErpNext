@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     admin_email: str = Field(default="admin@example.com", validation_alias="ADMIN_EMAIL")
     admin_password: str = Field(default="", validation_alias="ADMIN_PASSWORD")
     admin_name: str = Field(default="Administrator", validation_alias="ADMIN_NAME")
+    # Optional JSON list of users to create at startup when they do not exist yet.
+    # Useful on hosts with ephemeral storage (Vercel /tmp), where users created from
+    # the admin page disappear on a cold start. Example:
+    # SEED_USERS=[{"email":"sales@x.com","password":"...","full_name":"Sales","modules":["sales"]}]
+    seed_users: str = Field(default="", validation_alias="SEED_USERS")
 
     # App -----------------------------------------------------------------
     app_name: str = "ERPNext AI Assistant"
