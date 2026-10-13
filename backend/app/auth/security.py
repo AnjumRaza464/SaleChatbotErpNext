@@ -37,9 +37,12 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_session_token(user_id: str) -> str:
+def create_session_token(user_id: str, email: str) -> str:
+    """The token carries the email as well as the id: on hosts with ephemeral
+    per-instance storage (Vercel /tmp) the id may differ between instances,
+    but the email is stable."""
     now = datetime.now(timezone.utc)
-    payload = {"sub": user_id, "iat": now, "exp": now + timedelta(hours=get_settings().session_hours), "jti": secrets.token_hex(8)}
+    payload = {"sub": user_id, "email": email, "iat": now, "exp": now + timedelta(hours=get_settings().session_hours), "jti": secrets.token_hex(8)}
     return jwt.encode(payload, _secret(), algorithm="HS256")
 
 

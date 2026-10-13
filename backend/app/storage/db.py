@@ -133,8 +133,10 @@ class Database:
             return int(self._conn.execute("SELECT COUNT(*) FROM users").fetchone()[0])
 
     def create_user(self, email: str, full_name: str, password_hash: str, modules: list[str], is_admin: bool = False) -> dict[str, Any]:
-        uid, ts = new_id(), _now()
         email = email.strip().lower()
+        # Deterministic id from the email so the same user gets the same id on
+        # every instance of an ephemeral-storage host (Vercel /tmp).
+        uid, ts = uuid.uuid5(uuid.NAMESPACE_URL, f"erpnext-assistant:user:{email}").hex, _now()
         with self._lock:
             if self._conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
                 raise ValidationError("A user with this email already exists.")

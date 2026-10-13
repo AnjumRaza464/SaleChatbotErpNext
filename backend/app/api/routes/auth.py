@@ -40,7 +40,7 @@ async def login(body: LoginRequest, request: Request, response: Response) -> dic
         await run_in_threadpool(db.add_audit, user["id"] if user else None, None, "login_failed", body.email)
         raise AuthError("Invalid email or password.")
     login_throttle.reset(key)
-    token = create_session_token(user["id"])
+    token = create_session_token(user["id"], user["email"])
     secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
     response.set_cookie(
         SESSION_COOKIE, token, httponly=True, samesite="lax", secure=secure, max_age=get_settings().session_hours * 3600, path="/",

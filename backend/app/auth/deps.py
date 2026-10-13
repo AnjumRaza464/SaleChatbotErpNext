@@ -38,7 +38,12 @@ async def current_user(request: Request) -> dict[str, Any]:
     payload = decode_session_token(token)
     if not payload or not payload.get("sub"):
         raise AuthError("Your session has expired. Please sign in again.")
-    user = await run_in_threadpool(get_db().get_user, payload["sub"])
+    db = get_db()
+    user = None
+    if payload.get("email"):
+        user = await run_in_threadpool(db.get_user_by_email, payload["email"])
+    if user is None:
+        user = await run_in_threadpool(db.get_user, payload["sub"])
     if not user or not user.get("is_active"):
         raise AuthError("This account is disabled.")
     return user

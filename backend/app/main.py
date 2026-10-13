@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import admin, auth, chat, conversations, export, health, transcribe, uploads
 from app.agent.scope import MODULES
-from app.auth.security import hash_password
+from app.auth.security import hash_password, verify_password
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.logging import setup_logging
@@ -24,15 +24,26 @@ from app.storage.db import close_db, get_db
 log = logging.getLogger(__name__)
 
 
+def _sync_env_user(db, email: str, password: str, full_name: str, modules: list[str], is_admin: bool) -> None:
+    """Create the user if missing; otherwise make sure the password from the
+    environment is the one in force (the environment is the source of truth on
+    hosts where the database is ephemeral)."""
+    existing = db.get_user_by_email(email)
+    if existing is None:
+        db.create_user(email, full_name, hash_password(password), modules, is_admin)
+        log.info("Created user %s modules=%s admin=%s", email, modules, is_admin)
+    elif not verify_password(password, existing["password_hash"]):
+        db.update_user(existing["id"], password_hash=hash_password(password))
+        log.info("Updated password for %s from environment", email)
+
+
 def _bootstrap_admin(db, settings) -> None:
-    """Create the first administrator from ADMIN_EMAIL / ADMIN_PASSWORD when no users
-    exist, then any SEED_USERS that are missing (idempotent)."""
-    if db.count_users() == 0:
-        if not settings.admin_password:
-            log.error("No users exist and ADMIN_PASSWORD is not set. Add ADMIN_EMAIL and ADMIN_PASSWORD to backend/.env to create the first administrator.")
-        else:
-            db.create_user(settings.admin_email, settings.admin_name, hash_password(settings.admin_password), [], is_admin=True)
-            log.info("Created initial administrator %s", settings.admin_email)
+    """Ensure the administrator from ADMIN_EMAIL / ADMIN_PASSWORD and the users
+    from SEED_USERS exist with the configured passwords (idempotent)."""
+    if settings.admin_password:
+        _sync_env_user(db, settings.admin_email, settings.admin_password, settings.admin_name, [], True)
+    elif db.count_users() == 0:
+        log.error("No users exist and ADMIN_PASSWORD is not set. Add ADMIN_EMAIL and ADMIN_PASSWORD to backend/.env to create the first administrator.")
     if not settings.seed_users.strip():
         return
     try:
@@ -44,11 +55,10 @@ def _bootstrap_admin(db, settings) -> None:
     for s in seeds:
         email = str(s.get("email", "")).strip().lower()
         password = str(s.get("password", ""))
-        if not email or len(password) < 8 or db.get_user_by_email(email):
+        if not email or len(password) < 8:
             continue
         modules = [m for m in s.get("modules", []) if m in MODULES]
-        db.create_user(email, s.get("full_name") or email.split("@")[0], hash_password(password), modules, bool(s.get("is_admin")))
-        log.info("Seeded user %s modules=%s", email, modules)
+        _sync_env_user(db, email, password, s.get("full_name") or email.split("@")[0], modules, bool(s.get("is_admin")))
 
 
 @asynccontextmanager
