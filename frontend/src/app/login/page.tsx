@@ -74,7 +74,7 @@ export default function LoginPage() {
         {/* ---------------------------------------------------------- hero */}
         <section className="lp-hero">
           <div className="lp-brand">
-            <Image src="/sindh-bakery-logo.png" alt="The Sindh Bakery" width={491} height={176} priority className="lp-brand-logo" />
+            <Image src="/sindh-bakery-logo.png" alt="The Sindh Bakery" width={491} height={176} priority unoptimized className="lp-brand-logo" />
             <span className="lp-brand-divider" />
             <span>
               <strong>Sales Chatbot</strong>
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
           <form ref={cardRef} onSubmit={submit} onPointerMove={onCardMove} onPointerLeave={onCardLeave} className="lp-card">
             <div className="lp-card-icon">
-              <Image src="/sindh-bakery-mark.png" alt="" width={134} height={135} />
+              <Image src="/sindh-bakery-mark.png" alt="" width={134} height={135} unoptimized />
             </div>
             <h2 className="lp-card-title">Welcome back</h2>
             <p className="lp-card-sub">Sign in with the account you were given. You will only see the tabs assigned to you.</p>
